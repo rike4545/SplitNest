@@ -5,6 +5,9 @@
 
 import Foundation
 import Combine
+#if canImport(UserNotifications)
+import UserNotifications
+#endif
 
 final class HouseholdStore: ObservableObject {
 
@@ -14,9 +17,10 @@ final class HouseholdStore: ObservableObject {
     @Published var currencyCode: String { didSet { save() } }
     @Published var categoryBudgets: [ExpenseCategory: Double] { didSet { save() } }
     @Published var members: [Member] { didSet { save() } }
-    @Published var expenses: [Expense] { didSet { save() } }
+    @Published var expenses: [Expense] { didSet { save(); scheduleReminders() } }
     @Published var chores: [Chore] { didSet { save() } }
     @Published var lists: [SharedList] { didSet { save() } }
+    @Published var remindersEnabled: Bool { didSet { defaults.set(remindersEnabled, forKey: Self.reminderKey); scheduleReminders() } }
 
     // MARK: - Local persistence
 
@@ -31,6 +35,7 @@ final class HouseholdStore: ObservableObject {
     }
 
     private static let storageKey = "SplitNest.household.v1"
+    private static let reminderKey = "SplitNest.reminders.enabled"
     private let defaults: UserDefaults
 
     init(defaults: UserDefaults = .standard) {
@@ -44,6 +49,7 @@ final class HouseholdStore: ObservableObject {
         self.expenses = snapshot?.expenses ?? []
         self.chores = snapshot?.chores ?? []
         self.lists = snapshot?.lists ?? []
+        self.remindersEnabled = defaults.bool(forKey: Self.reminderKey)
     }
 
     private static let defaultBudgets: [ExpenseCategory: Double] = [
@@ -106,6 +112,57 @@ final class HouseholdStore: ObservableObject {
             .replacingOccurrences(of: locale.decimalSeparator ?? ".", with: ".")
         guard let amount = Double(normalized), amount.isFinite, amount > 0 else { return nil }
         return amount
+    }
+
+    // MARK: - Recurring bills and reminders
+
+    func nextBillDate(for expense: Expense, after date: Date = Date()) -> Date? {
+        guard var due = expense.dueDate else { return nil }
+        let calendar = Calendar.current
+        for _ in 0..<1200 {
+            if calendar.startOfDay(for: due) >= calendar.startOfDay(for: date) { return due }
+            let next: Date?
+            switch expense.recurrenceFrequency {
+            case .none: return nil
+            case .weekly: next = calendar.date(byAdding: .weekOfYear, value: 1, to: due)
+            case .monthly: next = calendar.date(byAdding: .month, value: 1, to: due)
+            case .customDays:
+                guard let days = expense.customIntervalDays, days > 0 else { return nil }
+                next = calendar.date(byAdding: .day, value: days, to: due)
+            }
+            guard let next, next > due else { return nil }
+            due = next
+        }
+        return nil
+    }
+
+    func enableReminders() {
+#if canImport(UserNotifications)
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { granted, _ in
+            DispatchQueue.main.async { self.remindersEnabled = granted }
+        }
+#endif
+    }
+
+    func scheduleReminders() {
+#if canImport(UserNotifications)
+        let center = UNUserNotificationCenter.current()
+        let ids = expenses.map { "bill-\($0.id.uuidString)" }
+        center.removePendingNotificationRequests(withIdentifiers: ids)
+        guard remindersEnabled else { return }
+        for expense in expenses {
+            guard let due = nextBillDate(for: expense) else { continue }
+            let content = UNMutableNotificationContent()
+            content.title = "Bill due: \(expense.title)"
+            content.body = expense.amount.formatted(.currency(code: currencyCode))
+            content.sound = .default
+            let trigger = UNCalendarNotificationTrigger(
+                dateMatching: Calendar.current.dateComponents([.year, .month, .day],
+                    from: due).settingHour(9), repeats: false)
+            center.add(UNNotificationRequest(identifier: "bill-\(expense.id.uuidString)",
+                content: content, trigger: trigger))
+        }
+#endif
     }
 
     // MARK: - Household
