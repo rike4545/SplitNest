@@ -148,7 +148,8 @@ final class HouseholdStore: ObservableObject {
 #if canImport(UserNotifications)
         let center = UNUserNotificationCenter.current()
         let ids = expenses.map { "bill-\($0.id.uuidString)" }
-        center.removePendingNotificationRequests(withIdentifiers: ids)
+        center.removePendingNotificationRequests(withIdentifiers: defaults.stringArray(forKey: "SplitNest.billNotificationIDs") ?? [])
+        defaults.set(ids, forKey: "SplitNest.billNotificationIDs")
         guard remindersEnabled else { return }
         for expense in expenses {
             guard let due = nextBillDate(for: expense) else { continue }
@@ -156,9 +157,9 @@ final class HouseholdStore: ObservableObject {
             content.title = "Bill due: \(expense.title)"
             content.body = expense.amount.formatted(.currency(code: currencyCode))
             content.sound = .default
-            let trigger = UNCalendarNotificationTrigger(
-                dateMatching: Calendar.current.dateComponents([.year, .month, .day],
-                    from: due).settingHour(9), repeats: false)
+            var components = Calendar.current.dateComponents([.year, .month, .day], from: due)
+            components.hour = 9
+            let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
             center.add(UNNotificationRequest(identifier: "bill-\(expense.id.uuidString)",
                 content: content, trigger: trigger))
         }
