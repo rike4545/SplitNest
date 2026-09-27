@@ -12,6 +12,7 @@ final class HouseholdStore: ObservableObject {
 
     @Published var householdName: String { didSet { save() } }
     @Published var currencyCode: String { didSet { save() } }
+    @Published var categoryBudgets: [ExpenseCategory: Double] { didSet { save() } }
     @Published var members: [Member] { didSet { save() } }
     @Published var expenses: [Expense] { didSet { save() } }
     @Published var chores: [Chore] { didSet { save() } }
@@ -22,6 +23,7 @@ final class HouseholdStore: ObservableObject {
     private struct Snapshot: Codable {
         var householdName: String
         var currencyCode: String?
+        var categoryBudgets: [ExpenseCategory: Double]?
         var members: [Member]
         var expenses: [Expense]
         var chores: [Chore]
@@ -37,16 +39,51 @@ final class HouseholdStore: ObservableObject {
             .flatMap { try? JSONDecoder().decode(Snapshot.self, from: $0) }
         self.householdName = snapshot?.householdName ?? "The Nest"
         self.currencyCode = snapshot?.currencyCode ?? Locale.current.currency?.identifier ?? "USD"
+        self.categoryBudgets = snapshot?.categoryBudgets ?? Self.defaultBudgets
         self.members = snapshot?.members ?? []
         self.expenses = snapshot?.expenses ?? []
         self.chores = snapshot?.chores ?? []
         self.lists = snapshot?.lists ?? []
     }
 
+    private static let defaultBudgets: [ExpenseCategory: Double] = [
+        .rent: 2500, .utilities: 300, .groceries: 600, .diningOut: 300,
+        .entertainment: 200, .pets: 150, .transport: 200, .other: 250
+    ]
+
+    func setBudget(_ amount: Double, for category: ExpenseCategory) {
+        guard amount.isFinite, amount >= 0 else { return }
+        categoryBudgets[category] = amount
+    }
+
+    func exportBackup() throws -> Data {
+        try JSONEncoder().encode(Snapshot(householdName: householdName,
+            currencyCode: currencyCode, categoryBudgets: categoryBudgets,
+            members: members, expenses: expenses, chores: chores, lists: lists))
+    }
+
+    func importBackup(_ data: Data) throws {
+        let snapshot = try JSONDecoder().decode(Snapshot.self, from: data)
+        guard !snapshot.householdName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              snapshot.expenses.allSatisfy({ $0.amount.isFinite && $0.amount > 0 }) else {
+            throw BackupError.invalidData
+        }
+        householdName = snapshot.householdName
+        currencyCode = snapshot.currencyCode ?? Locale.current.currency?.identifier ?? "USD"
+        categoryBudgets = snapshot.categoryBudgets ?? Self.defaultBudgets
+        members = snapshot.members
+        expenses = snapshot.expenses
+        chores = snapshot.chores
+        lists = snapshot.lists
+    }
+
+    enum BackupError: Error { case invalidData }
+
     private func save() {
         let snapshot = Snapshot(
             householdName: householdName,
             currencyCode: currencyCode,
+            categoryBudgets: categoryBudgets,
             members: members,
             expenses: expenses,
             chores: chores,
@@ -420,20 +457,6 @@ final class HouseholdStore: ObservableObject {
     }
 
     // MARK: - Category Budgets & Totals
-
-    /// Simple per-category monthly budgets (can be made editable later).
-    var categoryBudgets: [ExpenseCategory: Double] {
-        [
-            .rent:          2500,
-            .utilities:     300,
-            .groceries:     600,
-            .diningOut:     300,
-            .entertainment: 200,
-            .pets:          150,
-            .transport:     200,
-            .other:         250
-        ]
-    }
 
     /// Per-category totals for a given year/month (by expense.date).
     func categoryTotals(forYear year: Int, month: Int) -> [ExpenseCategory: Double] {
