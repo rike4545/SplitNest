@@ -45,7 +45,7 @@ struct ExpensesView: View {
                                     HStack {
                                         Text("\(settlement.from.name) → \(settlement.to.name)")
                                         Spacer()
-                                        Text(settlement.amount, format: .currency(code: Locale.current.currency?.identifier ?? "USD"))
+                                        Text(settlement.amount, format: .currency(code: household.currencyCode))
                                             .fontWeight(.semibold)
                                     }
                                     .accessibilityElement(children: .combine)
@@ -211,7 +211,7 @@ struct ExpensesView: View {
 
                 Text(
                     expense.amount,
-                    format: .currency(code: Locale.current.currency?.identifier ?? "USD")
+                    format: .currency(code: household.currencyCode)
                 )
                 .font(.system(size: 16, weight: .bold, design: .rounded))
                 .foregroundColor(SplitNestTheme.primary)
@@ -257,7 +257,7 @@ struct ExpensesView: View {
                 VStack(alignment: .trailing, spacing: 10) {
                     Text(
                         expense.amount,
-                        format: .currency(code: Locale.current.currency?.identifier ?? "USD")
+                        format: .currency(code: household.currencyCode)
                     )
                     .font(.system(size: 16, weight: .bold, design: .rounded))
                     .foregroundColor(SplitNestTheme.primary)
