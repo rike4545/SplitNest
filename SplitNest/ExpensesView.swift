@@ -39,6 +39,20 @@ struct ExpensesView: View {
                     }
 
                     List {
+                        if !household.suggestedSettlements.isEmpty {
+                            Section("Settle up") {
+                                ForEach(household.suggestedSettlements) { settlement in
+                                    HStack {
+                                        Text("\(settlement.from.name) → \(settlement.to.name)")
+                                        Spacer()
+                                        Text(settlement.amount, format: .currency(code: Locale.current.currency?.identifier ?? "USD"))
+                                            .fontWeight(.semibold)
+                                    }
+                                    .accessibilityElement(children: .combine)
+                                }
+                            }
+                        }
+                        Section("Expenses") {
                         ForEach(sortedExpenses) { expense in
                             expenseRow(expense)
                                 .contentShape(Rectangle())
@@ -72,6 +86,7 @@ struct ExpensesView: View {
                                 household.deleteExpense(expense)
                             }
                             refreshExpenseToast()
+                        }
                         }
                     }
 #if os(iOS)
