@@ -9,7 +9,7 @@
 
 import Foundation
 
-struct Member: Identifiable, Hashable {
+struct Member: Identifiable, Hashable, Codable {
     let id: UUID
     var name: String
 
@@ -21,7 +21,7 @@ struct Member: Identifiable, Hashable {
 
 // MARK: - Recurrence
 
-enum RecurrenceFrequency: String, CaseIterable, Identifiable {
+enum RecurrenceFrequency: String, CaseIterable, Identifiable, Codable {
     case none
     case weekly
     case monthly
@@ -55,7 +55,7 @@ enum RecurrenceFrequency: String, CaseIterable, Identifiable {
 
 // MARK: - Expense
 
-enum ExpenseCategory: String, CaseIterable, Identifiable {
+enum ExpenseCategory: String, CaseIterable, Identifiable, Codable {
     case rent
     case utilities
     case groceries
@@ -81,7 +81,7 @@ enum ExpenseCategory: String, CaseIterable, Identifiable {
     }
 }
 
-struct Expense: Identifiable {
+struct Expense: Identifiable, Codable {
     let id: UUID
     var title: String
     var amount: Double
@@ -124,7 +124,7 @@ struct Expense: Identifiable {
 
 // MARK: - Chore
 
-struct Chore: Identifiable {
+struct Chore: Identifiable, Codable {
     let id: UUID
     var title: String
     var assignedTo: Member.ID?
@@ -160,7 +160,7 @@ struct Chore: Identifiable {
 
 // MARK: - Lists
 
-struct ListItem: Identifiable {
+struct ListItem: Identifiable, Codable {
     let id: UUID
     var text: String
     var isCompleted: Bool
@@ -172,7 +172,7 @@ struct ListItem: Identifiable {
     }
 }
 
-struct SharedList: Identifiable {
+struct SharedList: Identifiable, Codable {
     let id: UUID
     var title: String
     var items: [ListItem]
