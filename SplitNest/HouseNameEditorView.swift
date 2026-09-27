@@ -23,6 +23,21 @@ struct HouseNameEditorView: View {
                 TextField("House name", text: $draftName)
                     .textInputAutocapitalization(.words)
             }
+
+            Section("Currency") {
+                Picker("Household currency", selection: Binding(
+                    get: { household.currencyCode },
+                    set: { household.setCurrency($0) }
+                )) {
+                    ForEach(Locale.commonISOCurrencyCodes.sorted(), id: \.self) { code in
+                        Text("\(code) · \(Locale.current.localizedString(forCurrencyCode: code) ?? code)")
+                            .tag(code)
+                    }
+                }
+                Text("Changing the currency changes labels only. Existing amounts are not converted.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
         }
         .navigationTitle("Rename House")
         .navigationBarTitleDisplayMode(.inline)
