@@ -12,6 +12,7 @@ import SwiftUI
 
 struct AssistantView: View {
     @EnvironmentObject private var assistantStore: AiAssistantStore
+    @EnvironmentObject private var household: HouseholdStore
     @Environment(\.colorScheme) private var scheme
     @State private var inputText: String = ""
     @State private var showingClearConfirmation = false
@@ -97,7 +98,7 @@ struct AssistantView: View {
     private func send() {
         let trimmed = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
-        assistantStore.send(trimmed)
+        assistantStore.send(trimmed, household: household)
         inputText = ""
     }
 }
