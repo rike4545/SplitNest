@@ -71,7 +71,9 @@ final class HouseholdStore: ObservableObject {
     func importBackup(_ data: Data) throws {
         let snapshot = try JSONDecoder().decode(Snapshot.self, from: data)
         guard !snapshot.householdName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-              snapshot.expenses.allSatisfy({ $0.amount.isFinite && $0.amount > 0 }) else {
+              snapshot.expenses.allSatisfy({ $0.amount.isFinite && $0.amount > 0 }),
+              (snapshot.categoryBudgets ?? [:]).values.allSatisfy({ $0.isFinite && $0 >= 0 }),
+              snapshot.currencyCode.map({ Locale.commonISOCurrencyCodes.contains($0) }) ?? true else {
             throw BackupError.invalidData
         }
         householdName = snapshot.householdName
@@ -152,7 +154,9 @@ final class HouseholdStore: ObservableObject {
         defaults.set(ids, forKey: "SplitNest.billNotificationIDs")
         guard remindersEnabled else { return }
         for expense in expenses {
-            guard let due = nextBillDate(for: expense) else { continue }
+            let todayAtNine = Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: Date()) ?? Date()
+            let earliest = Date() < todayAtNine ? Date() : Calendar.current.date(byAdding: .day, value: 1, to: Date()) ?? Date()
+            guard let due = nextBillDate(for: expense, after: earliest) else { continue }
             let content = UNMutableNotificationContent()
             content.title = "Bill due: \(expense.title)"
             content.body = expense.amount.formatted(.currency(code: currencyCode))
