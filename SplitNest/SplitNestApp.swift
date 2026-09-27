@@ -9,7 +9,7 @@ import GoogleMobileAds
 struct SplitNestApp: App {
     @StateObject private var householdStore = HouseholdStore()
     @Environment(\.scenePhase) private var scenePhase
-    @StateObject private var assistantStore = AiAssistantStore(service: MockAiAssistantService())
+    @StateObject private var assistantStore = AiAssistantStore()
 
     init() {
 #if os(iOS)
