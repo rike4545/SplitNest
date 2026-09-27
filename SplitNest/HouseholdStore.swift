@@ -11,6 +11,7 @@ final class HouseholdStore: ObservableObject {
     // MARK: - Published State
 
     @Published var householdName: String { didSet { save() } }
+    @Published var currencyCode: String { didSet { save() } }
     @Published var members: [Member] { didSet { save() } }
     @Published var expenses: [Expense] { didSet { save() } }
     @Published var chores: [Chore] { didSet { save() } }
@@ -20,6 +21,7 @@ final class HouseholdStore: ObservableObject {
 
     private struct Snapshot: Codable {
         var householdName: String
+        var currencyCode: String?
         var members: [Member]
         var expenses: [Expense]
         var chores: [Chore]
@@ -34,6 +36,7 @@ final class HouseholdStore: ObservableObject {
         let snapshot = defaults.data(forKey: Self.storageKey)
             .flatMap { try? JSONDecoder().decode(Snapshot.self, from: $0) }
         self.householdName = snapshot?.householdName ?? "The Nest"
+        self.currencyCode = snapshot?.currencyCode ?? Locale.current.currency?.identifier ?? "USD"
         self.members = snapshot?.members ?? []
         self.expenses = snapshot?.expenses ?? []
         self.chores = snapshot?.chores ?? []
@@ -43,6 +46,7 @@ final class HouseholdStore: ObservableObject {
     private func save() {
         let snapshot = Snapshot(
             householdName: householdName,
+            currencyCode: currencyCode,
             members: members,
             expenses: expenses,
             chores: chores,
@@ -53,6 +57,11 @@ final class HouseholdStore: ObservableObject {
     }
 
     // MARK: - Household
+
+    func setCurrency(_ code: String) {
+        guard Locale.commonISOCurrencyCodes.contains(code) else { return }
+        currencyCode = code
+    }
 
     func renameHousehold(to newName: String) {
         let trimmed = newName.trimmingCharacters(in: .whitespacesAndNewlines)
