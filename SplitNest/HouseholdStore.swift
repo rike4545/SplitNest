@@ -71,7 +71,7 @@ final class HouseholdStore: ObservableObject {
     func importBackup(_ data: Data) throws {
         let snapshot = try JSONDecoder().decode(Snapshot.self, from: data)
         guard !snapshot.householdName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-              snapshot.expenses.allSatisfy({ $0.amount.isFinite && $0.amount > 0 }),
+              snapshot.expenses.allSatisfy({ $0.amount.isFinite && $0.amount > 0 && $0.amount < Double(Int.max) / 100 }),
               (snapshot.categoryBudgets ?? [:]).values.allSatisfy({ $0.isFinite && $0 >= 0 }),
               snapshot.currencyCode.map({ Locale.commonISOCurrencyCodes.contains($0) }) ?? true else {
             throw BackupError.invalidData
@@ -233,7 +233,7 @@ final class HouseholdStore: ObservableObject {
         customIntervalDays: Int? = nil
     ) {
         let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedTitle.isEmpty, amount.isFinite, amount > 0,
+        guard !trimmedTitle.isEmpty, amount.isFinite, amount > 0, amount < Double(Int.max) / 100,
               members.contains(where: { $0.id == paidBy }),
               !participants.isEmpty,
               participants.allSatisfy({ id in members.contains(where: { $0.id == id }) }) else { return }
@@ -254,7 +254,12 @@ final class HouseholdStore: ObservableObject {
 
     /// Replace an existing expense by matching its id.
     func updateExpense(_ updated: Expense) {
-        guard let index = expenses.firstIndex(where: { $0.id == updated.id }) else { return }
+        guard let index = expenses.firstIndex(where: { $0.id == updated.id }),
+              updated.amount.isFinite, updated.amount > 0,
+              updated.amount < Double(Int.max) / 100,
+              members.contains(where: { $0.id == updated.paidBy }),
+              !updated.participants.isEmpty,
+              updated.participants.allSatisfy({ id in members.contains(where: { $0.id == id }) }) else { return }
         expenses[index] = updated
     }
 
