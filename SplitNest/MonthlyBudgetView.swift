@@ -60,7 +60,7 @@ struct MonthlyBudgetView: View {
 
                 if household.members.count > 0 {
                     let perPerson = summary.total / Double(household.members.count)
-                    Text("≈ \(perPerson, format: .currency(code: Locale.current.currency?.identifier ?? "USD")) per person")
+                    Text("≈ \(perPerson, format: .currency(code: household.currencyCode)) per person")
                         .font(SplitNestTheme.captionFont())
                         .foregroundColor(SplitNestTheme.textSecondary)
                 }
@@ -70,7 +70,7 @@ struct MonthlyBudgetView: View {
 
             Text(
                 summary.total,
-                format: .currency(code: Locale.current.currency?.identifier ?? "USD")
+                format: .currency(code: household.currencyCode)
             )
             .font(.system(size: 18, weight: .bold, design: .rounded))
             .foregroundColor(SplitNestTheme.primary)
@@ -130,11 +130,11 @@ struct MonthlyBudgetView: View {
                             Spacer()
 
                             if let budget = row.budget {
-                                Text("\(row.spent, format: .currency(code: Locale.current.currency?.identifier ?? "USD")) / \(budget, format: .currency(code: Locale.current.currency?.identifier ?? "USD"))")
+                                Text("\(row.spent, format: .currency(code: household.currencyCode)) / \(budget, format: .currency(code: household.currencyCode))")
                                     .font(SplitNestTheme.captionFont())
                                     .foregroundColor(row.overBudget ? .red : SplitNestTheme.textSecondary)
                             } else {
-                                Text(row.spent, format: .currency(code: Locale.current.currency?.identifier ?? "USD"))
+                                Text(row.spent, format: .currency(code: household.currencyCode))
                                     .font(SplitNestTheme.captionFont())
                                     .foregroundColor(SplitNestTheme.textSecondary)
                             }
