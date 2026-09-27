@@ -2,6 +2,7 @@ import Foundation
 import Testing
 @testable import SplitNest
 
+@MainActor
 struct SplitNestTests {
     @Test func householdSurvivesRestart() {
         let suite = "SplitNestTests.\(UUID().uuidString)"

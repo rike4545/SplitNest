@@ -152,7 +152,7 @@ struct ChoresView: View {
                         }
 
                         if let due = chore.dueDate {
-                            Text("Due \(due, style: .date)")
+                            Text(L10n.format("Due %@", due.formatted(date: .abbreviated, time: .omitted)))
                                 .font(SplitNestTheme.captionFont())
                                 .foregroundColor(SplitNestTheme.textSecondary)
                         }
@@ -189,7 +189,7 @@ struct ChoresView: View {
                     Text(chore.title)
                         .font(.system(size: 16, weight: .semibold, design: .rounded))
                     if let due = chore.dueDate {
-                        Text("Due \(due, style: .date)")
+                        Text(L10n.format("Due %@", due.formatted(date: .abbreviated, time: .omitted)))
                             .font(SplitNestTheme.captionFont())
                             .foregroundColor(SplitNestTheme.textSecondary)
                     }
@@ -253,7 +253,7 @@ struct ChoresView: View {
                         .tint(SplitNestTheme.primary)
                 }
             }
-            .navigationTitle(isEditing ? "Edit Chore" : "Add Chore")
+            .navigationTitle(isEditing ? String(localized: "Edit Chore") : String(localized: "Add Chore"))
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") {
@@ -370,13 +370,13 @@ struct ChoresView: View {
 
         switch days {
         case ..<0:
-            return "Past due"
+            return String(localized: "Past due")
         case 0:
-            return "Today"
+            return String(localized: "Today")
         case 1:
-            return "In 1 day"
+            return String(localized: "In 1 day")
         default:
-            return "In \(days) days"
+            return String(localized: "In \(days) days")
         }
     }
 
@@ -406,7 +406,7 @@ struct ChoresView: View {
 
         if let due = upcoming.dueDate {
             let dateText = formatter.string(from: due)
-            parts.append("due \(dateText)")
+            parts.append(L10n.format("Due %@", dateText))
         }
 
         let suffix = parts.joined(separator: " · ")
@@ -450,7 +450,7 @@ private struct ChoreReminderToast: View {
                 .foregroundColor(SplitNestTheme.primary)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(title)
+                Text(LocalizedStringKey(title))
                     .font(.caption.bold())
                     .foregroundColor(SplitNestTheme.textPrimary)
 

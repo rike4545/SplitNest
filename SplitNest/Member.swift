@@ -31,10 +31,10 @@ enum RecurrenceFrequency: String, CaseIterable, Identifiable, Codable {
 
     var label: String {
         switch self {
-        case .none:       return "Doesn’t repeat"
-        case .weekly:     return "Every week"
-        case .monthly:    return "Every month"
-        case .customDays: return "Custom days"
+        case .none:       return String(localized: "Doesn’t repeat")
+        case .weekly:     return String(localized: "Every week")
+        case .monthly:    return String(localized: "Every month")
+        case .customDays: return String(localized: "Custom days")
         }
     }
 
@@ -69,14 +69,14 @@ enum ExpenseCategory: String, CaseIterable, Identifiable, Codable {
 
     var label: String {
         switch self {
-        case .rent:          return "Rent"
-        case .utilities:     return "Utilities"
-        case .groceries:     return "Groceries"
-        case .diningOut:     return "Dining Out"
-        case .entertainment: return "Entertainment"
-        case .pets:          return "Pets"
-        case .transport:     return "Transport"
-        case .other:         return "Other"
+        case .rent:          return String(localized: "Rent")
+        case .utilities:     return String(localized: "Utilities")
+        case .groceries:     return String(localized: "Groceries")
+        case .diningOut:     return String(localized: "Dining Out")
+        case .entertainment: return String(localized: "Entertainment")
+        case .pets:          return String(localized: "Pets")
+        case .transport:     return String(localized: "Transport")
+        case .other:         return String(localized: "Other")
         }
     }
 }
@@ -183,3 +183,4 @@ struct SharedList: Identifiable, Codable {
         self.items = items
     }
 }
+

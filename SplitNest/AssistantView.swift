@@ -19,6 +19,15 @@ struct AssistantView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack {
+                    ForEach(AiAssistantStore.Topic.allCases) { topic in
+                        Button(topic.title) { assistantStore.send(topic, household: household) }
+                            .buttonStyle(.bordered)
+                    }
+                }
+                .padding(.horizontal)
+            }
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 12) {
                     ForEach(assistantStore.messages) { message in

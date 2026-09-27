@@ -83,7 +83,7 @@ struct HomeView: View {
 
                 HStack(spacing: 8) {
                     PillTag(text: "Household")
-                    PillTag(text: "\(household.members.count) roommates")
+                    PillTag(text: String(localized: "\(household.members.count) roommates"))
                 }
             }
             .padding(20)
@@ -142,7 +142,7 @@ struct HomeView: View {
                         .font(.system(size: 14, weight: .semibold, design: .rounded))
                         .foregroundColor(accent)
                     Spacer()
-                    Text(title)
+                    Text(LocalizedStringKey(title))
                         .font(SplitNestTheme.captionFont())
                         .foregroundColor(SplitNestTheme.textSecondary)
                 }
@@ -151,7 +151,7 @@ struct HomeView: View {
                     .font(.system(size: 22, weight: .bold, design: .rounded))
                     .foregroundColor(SplitNestTheme.textPrimary)
 
-                Text(subtitle)
+                Text(LocalizedStringKey(subtitle))
                     .font(.system(size: 11, weight: .medium, design: .rounded))
                     .foregroundColor(SplitNestTheme.textSecondary)
             }
@@ -162,7 +162,7 @@ struct HomeView: View {
 
     private var settleUpSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            SplitNestSectionHeader("Settle Up", subtitle: "The fewest payments to even things out.")
+            SplitNestSectionHeader("Settle Up", subtitle: "Suggested payments to even things out.")
 
             if household.suggestedSettlements.isEmpty {
                 SplitNestCard {
@@ -199,7 +199,7 @@ struct HomeView: View {
                                 )
 
                             VStack(alignment: .leading, spacing: 5) {
-                                Text("\(suggestion.from.name) pays \(suggestion.to.name)")
+                                Text(L10n.format("%@ pays %@", suggestion.from.name, suggestion.to.name))
                                     .font(.system(size: 16, weight: .semibold, design: .rounded))
                                     .foregroundColor(SplitNestTheme.textPrimary)
 
@@ -231,11 +231,11 @@ struct HomeView: View {
     private var settlementSummarySubtitle: String {
         switch household.suggestedSettlements.count {
         case 0:
-            return "all balances even"
+            return String(localized: "all balances even")
         case 1:
-            return "one payment suggested"
+            return String(localized: "one payment suggested")
         default:
-            return "\(household.suggestedSettlements.count) payments suggested"
+            return String(localized: "\(household.suggestedSettlements.count) payments suggested")
         }
     }
 
@@ -280,7 +280,7 @@ struct HomeView: View {
 
                                 HStack(spacing: 6) {
                                     if let payer = household.member(for: expense.paidBy) {
-                                        Text("Paid by \(payer.name)")
+                                        Text(L10n.format("Paid by %@", payer.name))
                                     }
                                     Text(expense.date, style: .date)
                                 }
@@ -396,14 +396,15 @@ struct HomeView: View {
 
         switch days {
         case ..<0:
-            return "Past due"
+            return String(localized: "Past due")
         case 0:
-            return "Today"
+            return String(localized: "Today")
         case 1:
-            return "In 1 day"
+            return String(localized: "In 1 day")
         default:
-            return "In \(days) days"
+            return String(localized: "In \(days) days")
         }
     }
 }
+
 

@@ -57,7 +57,7 @@ struct EditExpenseView: View {
             Section(header: Text("Details")) {
                 TextField("Title", text: $title)
 
-                TextField("Amount (\(household.currencyCode))", text: $amountText)
+                TextField(L10n.format("Amount (%@)", household.currencyCode), text: $amountText)
                     .keyboardType(.decimalPad)
                     .multilineTextAlignment(.trailing)
 
@@ -222,3 +222,4 @@ struct EditExpenseView: View {
         dismiss()
     }
 }
+

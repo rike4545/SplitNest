@@ -90,7 +90,7 @@ struct HouseNameEditorView: View {
             Button("Restore Backup", role: .destructive) {
                 guard let pendingImport else { return }
                 do { try household.importBackup(pendingImport); draftName = household.householdName }
-                catch { backupError = "This is not a valid SplitNest backup." }
+                catch { backupError = String(localized: "This is not a valid SplitNest backup.") }
                 self.pendingImport = nil
             }
         } message: {
@@ -146,3 +146,4 @@ private struct HouseholdBackupDocument: FileDocument {
         FileWrapper(regularFileWithContents: data)
     }
 }
+

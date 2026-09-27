@@ -42,7 +42,7 @@ final class HouseholdStore: ObservableObject {
         self.defaults = defaults
         let snapshot = defaults.data(forKey: Self.storageKey)
             .flatMap { try? JSONDecoder().decode(Snapshot.self, from: $0) }
-        self.householdName = snapshot?.householdName ?? "The Nest"
+        self.householdName = snapshot?.householdName ?? String(localized: "The Nest")
         self.currencyCode = snapshot?.currencyCode ?? Locale.current.currency?.identifier ?? "USD"
         self.categoryBudgets = snapshot?.categoryBudgets ?? Self.defaultBudgets
         self.members = snapshot?.members ?? []
@@ -158,7 +158,7 @@ final class HouseholdStore: ObservableObject {
             let earliest = Date() < todayAtNine ? Date() : Calendar.current.date(byAdding: .day, value: 1, to: Date()) ?? Date()
             guard let due = nextBillDate(for: expense, after: earliest) else { continue }
             let content = UNMutableNotificationContent()
-            content.title = "Bill due: \(expense.title)"
+            content.title = L10n.format("Bill due: %@", expense.title)
             content.body = expense.amount.formatted(.currency(code: currencyCode))
             content.sound = .default
             var components = Calendar.current.dateComponents([.year, .month, .day], from: due)
@@ -563,7 +563,8 @@ struct MonthlyExpenseSummary: Identifiable {
         let date = calendar.date(from: comps) ?? Date()
 
         let formatter = DateFormatter()
-        formatter.dateFormat = "MMMM yyyy"
+        formatter.setLocalizedDateFormatFromTemplate("MMMM yyyy")
         return formatter.string(from: date)
     }
 }
+

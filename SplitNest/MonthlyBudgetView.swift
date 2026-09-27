@@ -69,7 +69,7 @@ struct MonthlyBudgetView: View {
 
                 if household.members.count > 0 {
                     let perPerson = summary.total / Double(household.members.count)
-                    Text("≈ \(perPerson, format: .currency(code: household.currencyCode)) per person")
+                    Text(L10n.format("≈ %@ per person", perPerson.formatted(.currency(code: household.currencyCode))))
                         .font(SplitNestTheme.captionFont())
                         .foregroundColor(SplitNestTheme.textSecondary)
                 }
@@ -178,7 +178,7 @@ private struct BudgetEditorView: View {
                     .keyboardType(.decimalPad)
                 }
             } footer: {
-                Text("Monthly limits in \(household.currencyCode). Enter 0 to remove a limit.")
+                Text(L10n.format("Monthly limits in %@. Enter 0 to remove a limit.", household.currencyCode))
             }
         }
         .navigationTitle("Category Budgets")
@@ -212,3 +212,4 @@ private struct BudgetEditorView: View {
         }
     }
 }
+

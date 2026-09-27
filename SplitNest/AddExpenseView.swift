@@ -29,7 +29,7 @@ struct AddExpenseView: View {
             Section("Details") {
                 TextField("Title", text: $title)
 
-                TextField("Amount (\(household.currencyCode))", text: $amountText)
+                TextField(L10n.format("Amount (%@)", household.currencyCode), text: $amountText)
                     .keyboardType(.decimalPad)
 
                 Picker("Category", selection: $selectedCategory) {
@@ -153,3 +153,4 @@ struct AddExpenseView: View {
         dismiss()
     }
 }
+

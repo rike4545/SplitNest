@@ -18,11 +18,11 @@ struct RoommatesEditorView: View {
         let count = household.members.count
         switch count {
         case 0:
-            return "No roommates yet"
+            return String(localized: "No roommates yet")
         case 1:
-            return "1 roommate"
+            return String(localized: "1 roommate")
         default:
-            return "\(count) roommates"
+            return String(localized: "\(count) roommates")
         }
     }
 
@@ -114,3 +114,4 @@ struct RoommatesEditorView: View {
         newMemberName = ""
     }
 }
+
