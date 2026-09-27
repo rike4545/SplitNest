@@ -31,6 +31,17 @@ struct HouseNameEditorView: View {
                     .textInputAutocapitalization(.words)
             }
 
+            Section("Bill Reminders") {
+                if household.remindersEnabled {
+                    Button("Turn Off Reminders") { household.remindersEnabled = false }
+                } else {
+                    Button("Enable Reminders") { household.enableReminders() }
+                }
+                Text("A local notification is scheduled at 9 AM for the next due date of each bill.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+
             Section("Backup") {
                 Button("Export JSON Backup", systemImage: "square.and.arrow.up") {
                     do {
