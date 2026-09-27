@@ -56,6 +56,21 @@ final class HouseholdStore: ObservableObject {
         defaults.set(data, forKey: Self.storageKey)
     }
 
+    // MARK: - Localized input
+
+    static func parseAmount(_ input: String, locale: Locale = .current) -> Double? {
+        let value = input.trimmingCharacters(in: .whitespacesAndNewlines)
+        let decimal = NSRegularExpression.escapedPattern(for: locale.decimalSeparator ?? ".")
+        let grouping = NSRegularExpression.escapedPattern(for: locale.groupingSeparator ?? ",")
+        let pattern = "^(?:[0-9]+|[0-9]{1,3}(?:\(grouping)[0-9]{3})+)(?:\(decimal)[0-9]+)?$"
+        guard value.range(of: pattern, options: .regularExpression) != nil else { return nil }
+        let normalized = value
+            .replacingOccurrences(of: locale.groupingSeparator ?? ",", with: "")
+            .replacingOccurrences(of: locale.decimalSeparator ?? ".", with: ".")
+        guard let amount = Double(normalized), amount.isFinite, amount > 0 else { return nil }
+        return amount
+    }
+
     // MARK: - Household
 
     func setCurrency(_ code: String) {
