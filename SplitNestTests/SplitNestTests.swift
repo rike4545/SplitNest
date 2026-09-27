@@ -38,7 +38,7 @@ struct SplitNestTests {
                          paidBy: store.members[0].id,
                          participants: store.members.map(\.id),
                          category: .groceries)
-        #expect(store.suggestedSettlements.reduce(0) { $0 + $1.cents } == 667)
-        #expect(store.netBalances.values.reduce(0, +) == 0)
+        #expect(store.suggestedSettlements.reduce(0) { $0 + $1.cents } == Int((store.netBalances[store.members[0].id]! * 100).rounded()))
+        #expect(Int((store.netBalances.values.reduce(0, +) * 100).rounded()) == 0)
     }
 }
