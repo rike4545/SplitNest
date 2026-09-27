@@ -29,7 +29,7 @@ struct AddExpenseView: View {
             Section("Details") {
                 TextField("Title", text: $title)
 
-                TextField("Amount", text: $amountText)
+                TextField("Amount (\(household.currencyCode))", text: $amountText)
                     .keyboardType(.decimalPad)
 
                 Picker("Category", selection: $selectedCategory) {
@@ -123,8 +123,7 @@ struct AddExpenseView: View {
     private func save() {
         guard
             !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-            let amount = Double(amountText.replacingOccurrences(of: ",", with: ".")),
-            amount > 0,
+            let amount = HouseholdStore.parseAmount(amountText),
             let payer = selectedPayer,
             !selectedParticipants.isEmpty
         else {
