@@ -10,6 +10,7 @@ struct SplitNestTests {
 
         let store = HouseholdStore(defaults: defaults)
         store.renameHousehold(to: "Maple House")
+        store.setCurrency("EUR")
         store.addMember(name: "Alex")
         store.addMember(name: "Sam")
         store.addExpense(title: "Utilities", amount: 41.25,
@@ -22,10 +23,18 @@ struct SplitNestTests {
 
         let restored = HouseholdStore(defaults: defaults)
         #expect(restored.householdName == "Maple House")
+        #expect(restored.currencyCode == "EUR")
         #expect(restored.members.map(\.id) == store.members.map(\.id))
         #expect(restored.expenses.first?.amount == 41.25)
         #expect(restored.chores.first?.title == "Trash")
         #expect(restored.lists.first?.items.first?.text == "Milk")
+    }
+
+    @Test func localizedAmountParsing() {
+        #expect(HouseholdStore.parseAmount("1,234.50", locale: Locale(identifier: "en_US")) == 1234.50)
+        #expect(HouseholdStore.parseAmount("1.234,50", locale: Locale(identifier: "de_DE")) == 1234.50)
+        #expect(HouseholdStore.parseAmount("1,5", locale: Locale(identifier: "en_US")) == nil)
+        #expect(HouseholdStore.parseAmount("-12", locale: Locale(identifier: "en_US")) == nil)
     }
 
     @Test func settlementsPreserveEveryCent() {
