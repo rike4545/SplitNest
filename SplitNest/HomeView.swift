@@ -164,7 +164,7 @@ struct HomeView: View {
         VStack(alignment: .leading, spacing: 12) {
             SplitNestSectionHeader("Settle Up", subtitle: "The fewest payments to even things out.")
 
-            if settlementSuggestions.isEmpty {
+            if household.suggestedSettlements.isEmpty {
                 SplitNestCard {
                     HStack(spacing: 12) {
                         Circle()
@@ -186,7 +186,7 @@ struct HomeView: View {
                     }
                 }
             } else {
-                ForEach(settlementSuggestions) { suggestion in
+                ForEach(household.suggestedSettlements) { suggestion in
                     SplitNestCard {
                         HStack(spacing: 12) {
                             Circle()
@@ -199,7 +199,7 @@ struct HomeView: View {
                                 )
 
                             VStack(alignment: .leading, spacing: 5) {
-                                Text("\(suggestion.from) pays \(suggestion.to)")
+                                Text("\(suggestion.from.name) pays \(suggestion.to.name)")
                                     .font(.system(size: 16, weight: .semibold, design: .rounded))
                                     .foregroundColor(SplitNestTheme.textPrimary)
 
@@ -224,65 +224,19 @@ struct HomeView: View {
     }
 
     private var settlementSummaryValue: String {
-        guard let first = settlementSuggestions.first else { return "$0" }
+        guard let first = household.suggestedSettlements.first else { return 0.formatted(.currency(code: household.currencyCode)) }
         return first.amount.formatted(.currency(code: household.currencyCode))
     }
 
     private var settlementSummarySubtitle: String {
-        switch settlementSuggestions.count {
+        switch household.suggestedSettlements.count {
         case 0:
             return "all balances even"
         case 1:
             return "one payment suggested"
         default:
-            return "\(settlementSuggestions.count) payments suggested"
+            return "\(household.suggestedSettlements.count) payments suggested"
         }
-    }
-
-    private var settlementSuggestions: [SettlementSuggestion] {
-        var debtors: [(name: String, amount: Double)] = []
-        var creditors: [(name: String, amount: Double)] = []
-
-        for member in household.members {
-            let balance = household.netBalances[member.id, default: 0]
-            if balance < -0.01 {
-                debtors.append((member.name, -balance))
-            } else if balance > 0.01 {
-                creditors.append((member.name, balance))
-            }
-        }
-
-        debtors.sort { $0.amount > $1.amount }
-        creditors.sort { $0.amount > $1.amount }
-
-        var debtorIndex = 0
-        var creditorIndex = 0
-        var results: [SettlementSuggestion] = []
-
-        while debtorIndex < debtors.count, creditorIndex < creditors.count {
-            let amount = min(debtors[debtorIndex].amount, creditors[creditorIndex].amount)
-            if amount > 0.01 {
-                results.append(
-                    SettlementSuggestion(
-                        from: debtors[debtorIndex].name,
-                        to: creditors[creditorIndex].name,
-                        amount: amount
-                    )
-                )
-            }
-
-            debtors[debtorIndex].amount -= amount
-            creditors[creditorIndex].amount -= amount
-
-            if debtors[debtorIndex].amount <= 0.01 {
-                debtorIndex += 1
-            }
-            if creditors[creditorIndex].amount <= 0.01 {
-                creditorIndex += 1
-            }
-        }
-
-        return Array(results.prefix(3))
     }
 
     // MARK: - Upcoming Bills
@@ -466,9 +420,3 @@ struct HomeView: View {
     }
 }
 
-private struct SettlementSuggestion: Identifiable {
-    let id = UUID()
-    let from: String
-    let to: String
-    let amount: Double
-}
