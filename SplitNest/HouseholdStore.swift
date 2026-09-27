@@ -10,20 +10,46 @@ final class HouseholdStore: ObservableObject {
 
     // MARK: - Published State
 
-    @Published var householdName: String
-    @Published var members: [Member]
-    @Published var expenses: [Expense]
-    @Published var chores: [Chore]
-    @Published var lists: [SharedList]
+    @Published var householdName: String { didSet { save() } }
+    @Published var members: [Member] { didSet { save() } }
+    @Published var expenses: [Expense] { didSet { save() } }
+    @Published var chores: [Chore] { didSet { save() } }
+    @Published var lists: [SharedList] { didSet { save() } }
 
-    // MARK: - Init
+    // MARK: - Local persistence
 
-    init() {
-        self.householdName = "The Nest"
-        self.members = []
-        self.expenses = []
-        self.chores = []
-        self.lists = []
+    private struct Snapshot: Codable {
+        var householdName: String
+        var members: [Member]
+        var expenses: [Expense]
+        var chores: [Chore]
+        var lists: [SharedList]
+    }
+
+    private static let storageKey = "SplitNest.household.v1"
+    private let defaults: UserDefaults
+
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+        let snapshot = defaults.data(forKey: Self.storageKey)
+            .flatMap { try? JSONDecoder().decode(Snapshot.self, from: $0) }
+        self.householdName = snapshot?.householdName ?? "The Nest"
+        self.members = snapshot?.members ?? []
+        self.expenses = snapshot?.expenses ?? []
+        self.chores = snapshot?.chores ?? []
+        self.lists = snapshot?.lists ?? []
+    }
+
+    private func save() {
+        let snapshot = Snapshot(
+            householdName: householdName,
+            members: members,
+            expenses: expenses,
+            chores: chores,
+            lists: lists
+        )
+        guard let data = try? JSONEncoder().encode(snapshot) else { return }
+        defaults.set(data, forKey: Self.storageKey)
     }
 
     // MARK: - Household
@@ -84,7 +110,10 @@ final class HouseholdStore: ObservableObject {
         customIntervalDays: Int? = nil
     ) {
         let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedTitle.isEmpty else { return }
+        guard !trimmedTitle.isEmpty, amount.isFinite, amount > 0,
+              members.contains(where: { $0.id == paidBy }),
+              !participants.isEmpty,
+              participants.allSatisfy({ id in members.contains(where: { $0.id == id }) }) else { return }
 
         let new = Expense(
             title: trimmedTitle,
@@ -269,27 +298,66 @@ final class HouseholdStore: ObservableObject {
 
     // MARK: - Balances
 
-    /// Very simple net balance calculation: positive = others owe them.
+    /// Positive means this member is owed money.
     var netBalances: [Member.ID: Double] {
-        var balances: [Member.ID: Double] = [:]
-        for member in members {
-            balances[member.id] = 0
-        }
+        centBalances.mapValues { Double($0) / 100 }
+    }
 
+    private var centBalances: [Member.ID: Int] {
+        var balances = Dictionary(uniqueKeysWithValues: members.map { ($0.id, 0) })
         for expense in expenses {
-            guard !expense.participants.isEmpty else { continue }
-            let share = expense.amount / Double(expense.participants.count)
-
-            // Participants owe their share
-            for participant in expense.participants {
-                balances[participant, default: 0] -= share
+            guard balances[expense.paidBy] != nil, expense.amount.isFinite,
+                  expense.amount > 0 else { continue }
+            let participants = Array(Set(expense.participants))
+                .filter { balances[$0] != nil }
+                .sorted { $0.uuidString < $1.uuidString }
+            guard !participants.isEmpty else { continue }
+            let cents = Int((expense.amount * 100).rounded())
+            let share = cents / participants.count
+            let remainder = cents % participants.count
+            for (index, id) in participants.enumerated() {
+                balances[id, default: 0] -= share + (index < remainder ? 1 : 0)
             }
-
-            // Payer fronted the full amount
-            balances[expense.paidBy, default: 0] += expense.amount
+            balances[expense.paidBy, default: 0] += cents
         }
-
         return balances
+    }
+
+    struct Settlement: Identifiable {
+        let from: Member
+        let to: Member
+        let cents: Int
+        var id: String { from.id.uuidString + to.id.uuidString }
+        var amount: Double { Double(cents) / 100 }
+    }
+
+    /// Greedily match debtors with creditors; amounts are rounded to cents.
+    var suggestedSettlements: [Settlement] {
+        let balances = centBalances
+        var debtors = members.compactMap { member -> (Member, Int)? in
+            let amount = balances[member.id, default: 0]
+            return amount < 0 ? (member, -amount) : nil
+        }.sorted { $0.0.name < $1.0.name }
+        var creditors = members.compactMap { member -> (Member, Int)? in
+            let amount = balances[member.id, default: 0]
+            return amount > 0 ? (member, amount) : nil
+        }.sorted { $0.0.name < $1.0.name }
+        var result: [Settlement] = []
+        var debtorIndex = 0
+        var creditorIndex = 0
+        while debtorIndex < debtors.count && creditorIndex < creditors.count {
+            let amount = min(debtors[debtorIndex].1, creditors[creditorIndex].1)
+            result.append(Settlement(
+                from: debtors[debtorIndex].0,
+                to: creditors[creditorIndex].0,
+                cents: amount
+            ))
+            debtors[debtorIndex].1 -= amount
+            creditors[creditorIndex].1 -= amount
+            if debtors[debtorIndex].1 == 0 { debtorIndex += 1 }
+            if creditors[creditorIndex].1 == 0 { creditorIndex += 1 }
+        }
+        return result
     }
 
     // MARK: - Monthly Expense Summary (for Budget by Month)
