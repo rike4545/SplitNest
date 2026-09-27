@@ -266,12 +266,11 @@ final class HouseholdStore: ObservableObject {
         let horizon = calendar.date(byAdding: .day, value: days, to: now) ?? now
 
         return expenses
-            .compactMap { expense -> Expense? in
-                guard let due = expense.dueDate else { return nil }
-                guard due >= now && due <= horizon else { return nil }
-                return expense
+            .filter { expense in
+                guard let due = nextBillDate(for: expense) else { return false }
+                return due <= horizon
             }
-            .sorted { ($0.dueDate ?? now) < ($1.dueDate ?? now) }
+            .sorted { (nextBillDate(for: $0) ?? now) < (nextBillDate(for: $1) ?? now) }
     }
 
     // MARK: - Chores
