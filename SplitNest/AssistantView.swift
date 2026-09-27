@@ -32,7 +32,7 @@ struct AssistantView: View {
 
             SplitNestCard {
                 HStack(spacing: 8) {
-                    TextField("Ask about expenses, splits, or reminders…", text: $inputText, axis: .vertical)
+                    TextField("Ask about balances, bills, chores, or budgets…", text: $inputText, axis: .vertical)
                         .textFieldStyle(.roundedBorder)
                         .lineLimit(1...3)
 
@@ -49,7 +49,7 @@ struct AssistantView: View {
             }
             .padding()
         }
-        .navigationTitle("Assistant")
+        .navigationTitle("Household Insights")
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button("Clear") {
