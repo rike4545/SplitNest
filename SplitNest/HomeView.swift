@@ -303,21 +303,8 @@ struct HomeView: View {
         }
     }
 
-    /// Choose up to 3 “upcoming” expenses.
-    /// If none are in the future, show the 3 most recent instead.
     private var upcomingBills: [Expense] {
-        let now = Date()
-
-        let future = household.expenses
-            .filter { $0.date >= now }
-            .sorted(by: { $0.date < $1.date })
-
-        if !future.isEmpty {
-            return Array(future.prefix(3))
-        }
-
-        let recent = household.expenses.sorted(by: { $0.date > $1.date })
-        return Array(recent.prefix(3))
+        Array(household.upcomingExpenses(withinDays: 30).prefix(3))
     }
 
     // MARK: - Upcoming Chores & Deadlines
