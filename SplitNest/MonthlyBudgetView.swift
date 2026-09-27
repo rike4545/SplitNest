@@ -9,6 +9,7 @@ import SwiftUI
 
 struct MonthlyBudgetView: View {
     @EnvironmentObject private var household: HouseholdStore
+    @State private var showingBudgetEditor = false
 
     var body: some View {
         List {
@@ -47,6 +48,14 @@ struct MonthlyBudgetView: View {
         .scrollContentBackground(.hidden)
 #endif
         .navigationTitle("Budget by Month")
+        .toolbar {
+            Button("Edit Budgets", systemImage: "slider.horizontal.3") {
+                showingBudgetEditor = true
+            }
+        }
+        .sheet(isPresented: $showingBudgetEditor) {
+            NavigationStack { BudgetEditorView() }
+        }
     }
 
     // MARK: - Rows
@@ -60,7 +69,7 @@ struct MonthlyBudgetView: View {
 
                 if household.members.count > 0 {
                     let perPerson = summary.total / Double(household.members.count)
-                    Text("≈ \(perPerson, format: .currency(code: Locale.current.currency?.identifier ?? "USD")) per person")
+                    Text(L10n.format("≈ %@ per person", perPerson.formatted(.currency(code: household.currencyCode))))
                         .font(SplitNestTheme.captionFont())
                         .foregroundColor(SplitNestTheme.textSecondary)
                 }
@@ -70,7 +79,7 @@ struct MonthlyBudgetView: View {
 
             Text(
                 summary.total,
-                format: .currency(code: Locale.current.currency?.identifier ?? "USD")
+                format: .currency(code: household.currencyCode)
             )
             .font(.system(size: 18, weight: .bold, design: .rounded))
             .foregroundColor(SplitNestTheme.primary)
@@ -130,11 +139,11 @@ struct MonthlyBudgetView: View {
                             Spacer()
 
                             if let budget = row.budget {
-                                Text("\(row.spent, format: .currency(code: Locale.current.currency?.identifier ?? "USD")) / \(budget, format: .currency(code: Locale.current.currency?.identifier ?? "USD"))")
+                                Text("\(row.spent, format: .currency(code: household.currencyCode)) / \(budget, format: .currency(code: household.currencyCode))")
                                     .font(SplitNestTheme.captionFont())
                                     .foregroundColor(row.overBudget ? .red : SplitNestTheme.textSecondary)
                             } else {
-                                Text(row.spent, format: .currency(code: Locale.current.currency?.identifier ?? "USD"))
+                                Text(row.spent, format: .currency(code: household.currencyCode))
                                     .font(SplitNestTheme.captionFont())
                                     .foregroundColor(SplitNestTheme.textSecondary)
                             }
@@ -151,3 +160,56 @@ struct MonthlyBudgetView: View {
         )
     }
 }
+
+private struct BudgetEditorView: View {
+    @EnvironmentObject private var household: HouseholdStore
+    @Environment(\.dismiss) private var dismiss
+    @State private var drafts: [ExpenseCategory: String] = [:]
+    @State private var invalid = false
+
+    var body: some View {
+        Form {
+            Section {
+                ForEach(ExpenseCategory.allCases) { category in
+                    TextField(category.label, text: Binding(
+                        get: { drafts[category] ?? "" },
+                        set: { drafts[category] = $0 }
+                    ))
+                    .keyboardType(.decimalPad)
+                }
+            } footer: {
+                Text(L10n.format("Monthly limits in %@. Enter 0 to remove a limit.", household.currencyCode))
+            }
+        }
+        .navigationTitle("Category Budgets")
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button("Cancel") { dismiss() }
+            }
+            ToolbarItem(placement: .confirmationAction) {
+                Button("Save") {
+                    let values = ExpenseCategory.allCases.map {
+                        HouseholdStore.parseAmount(drafts[$0] ?? "") ?? ((drafts[$0] ?? "") == "0" ? 0 : -1)
+                    }
+                    guard values.allSatisfy({ $0 >= 0 }) else { invalid = true; return }
+                    for (index, category) in ExpenseCategory.allCases.enumerated() {
+                        household.setBudget(values[index], for: category)
+                    }
+                    dismiss()
+                }
+            }
+        }
+        .alert("Invalid budget", isPresented: $invalid) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text("Enter a nonnegative amount for each category.")
+        }
+        .onAppear {
+            for category in ExpenseCategory.allCases {
+                drafts[category] = (household.categoryBudgets[category] ?? 0)
+                    .formatted(.number.precision(.fractionLength(0...2)))
+            }
+        }
+    }
+}
+

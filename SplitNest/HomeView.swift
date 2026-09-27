@@ -83,7 +83,7 @@ struct HomeView: View {
 
                 HStack(spacing: 8) {
                     PillTag(text: "Household")
-                    PillTag(text: "\(household.members.count) roommates")
+                    PillTag(text: String(localized: "\(household.members.count) roommates"))
                 }
             }
             .padding(20)
@@ -142,7 +142,7 @@ struct HomeView: View {
                         .font(.system(size: 14, weight: .semibold, design: .rounded))
                         .foregroundColor(accent)
                     Spacer()
-                    Text(title)
+                    Text(LocalizedStringKey(title))
                         .font(SplitNestTheme.captionFont())
                         .foregroundColor(SplitNestTheme.textSecondary)
                 }
@@ -151,7 +151,7 @@ struct HomeView: View {
                     .font(.system(size: 22, weight: .bold, design: .rounded))
                     .foregroundColor(SplitNestTheme.textPrimary)
 
-                Text(subtitle)
+                Text(LocalizedStringKey(subtitle))
                     .font(.system(size: 11, weight: .medium, design: .rounded))
                     .foregroundColor(SplitNestTheme.textSecondary)
             }
@@ -162,9 +162,9 @@ struct HomeView: View {
 
     private var settleUpSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            SplitNestSectionHeader("Settle Up", subtitle: "The fewest payments to even things out.")
+            SplitNestSectionHeader("Settle Up", subtitle: "Suggested payments to even things out.")
 
-            if settlementSuggestions.isEmpty {
+            if household.suggestedSettlements.isEmpty {
                 SplitNestCard {
                     HStack(spacing: 12) {
                         Circle()
@@ -186,7 +186,7 @@ struct HomeView: View {
                     }
                 }
             } else {
-                ForEach(settlementSuggestions) { suggestion in
+                ForEach(household.suggestedSettlements) { suggestion in
                     SplitNestCard {
                         HStack(spacing: 12) {
                             Circle()
@@ -199,7 +199,7 @@ struct HomeView: View {
                                 )
 
                             VStack(alignment: .leading, spacing: 5) {
-                                Text("\(suggestion.from) pays \(suggestion.to)")
+                                Text(L10n.format("%@ pays %@", suggestion.from.name, suggestion.to.name))
                                     .font(.system(size: 16, weight: .semibold, design: .rounded))
                                     .foregroundColor(SplitNestTheme.textPrimary)
 
@@ -212,7 +212,7 @@ struct HomeView: View {
 
                             Text(
                                 suggestion.amount,
-                                format: .currency(code: Locale.current.currency?.identifier ?? "USD")
+                                format: .currency(code: household.currencyCode)
                             )
                             .font(.system(size: 16, weight: .bold, design: .rounded))
                             .foregroundColor(SplitNestTheme.primary)
@@ -224,65 +224,19 @@ struct HomeView: View {
     }
 
     private var settlementSummaryValue: String {
-        guard let first = settlementSuggestions.first else { return "$0" }
-        return first.amount.formatted(.currency(code: Locale.current.currency?.identifier ?? "USD"))
+        guard let first = household.suggestedSettlements.first else { return 0.formatted(.currency(code: household.currencyCode)) }
+        return first.amount.formatted(.currency(code: household.currencyCode))
     }
 
     private var settlementSummarySubtitle: String {
-        switch settlementSuggestions.count {
+        switch household.suggestedSettlements.count {
         case 0:
-            return "all balances even"
+            return String(localized: "all balances even")
         case 1:
-            return "one payment suggested"
+            return String(localized: "one payment suggested")
         default:
-            return "\(settlementSuggestions.count) payments suggested"
+            return String(localized: "\(household.suggestedSettlements.count) payments suggested")
         }
-    }
-
-    private var settlementSuggestions: [SettlementSuggestion] {
-        var debtors: [(name: String, amount: Double)] = []
-        var creditors: [(name: String, amount: Double)] = []
-
-        for member in household.members {
-            let balance = household.netBalances[member.id, default: 0]
-            if balance < -0.01 {
-                debtors.append((member.name, -balance))
-            } else if balance > 0.01 {
-                creditors.append((member.name, balance))
-            }
-        }
-
-        debtors.sort { $0.amount > $1.amount }
-        creditors.sort { $0.amount > $1.amount }
-
-        var debtorIndex = 0
-        var creditorIndex = 0
-        var results: [SettlementSuggestion] = []
-
-        while debtorIndex < debtors.count, creditorIndex < creditors.count {
-            let amount = min(debtors[debtorIndex].amount, creditors[creditorIndex].amount)
-            if amount > 0.01 {
-                results.append(
-                    SettlementSuggestion(
-                        from: debtors[debtorIndex].name,
-                        to: creditors[creditorIndex].name,
-                        amount: amount
-                    )
-                )
-            }
-
-            debtors[debtorIndex].amount -= amount
-            creditors[creditorIndex].amount -= amount
-
-            if debtors[debtorIndex].amount <= 0.01 {
-                debtorIndex += 1
-            }
-            if creditors[creditorIndex].amount <= 0.01 {
-                creditorIndex += 1
-            }
-        }
-
-        return Array(results.prefix(3))
     }
 
     // MARK: - Upcoming Bills
@@ -326,7 +280,7 @@ struct HomeView: View {
 
                                 HStack(spacing: 6) {
                                     if let payer = household.member(for: expense.paidBy) {
-                                        Text("Paid by \(payer.name)")
+                                        Text(L10n.format("Paid by %@", payer.name))
                                     }
                                     Text(expense.date, style: .date)
                                 }
@@ -338,7 +292,7 @@ struct HomeView: View {
 
                             Text(
                                 expense.amount,
-                                format: .currency(code: Locale.current.currency?.identifier ?? "USD")
+                                format: .currency(code: household.currencyCode)
                             )
                             .font(.system(size: 16, weight: .bold, design: .rounded))
                             .foregroundColor(SplitNestTheme.primary)
@@ -349,21 +303,8 @@ struct HomeView: View {
         }
     }
 
-    /// Choose up to 3 “upcoming” expenses.
-    /// If none are in the future, show the 3 most recent instead.
     private var upcomingBills: [Expense] {
-        let now = Date()
-
-        let future = household.expenses
-            .filter { $0.date >= now }
-            .sorted(by: { $0.date < $1.date })
-
-        if !future.isEmpty {
-            return Array(future.prefix(3))
-        }
-
-        let recent = household.expenses.sorted(by: { $0.date > $1.date })
-        return Array(recent.prefix(3))
+        Array(household.upcomingExpenses(withinDays: 30).prefix(3))
     }
 
     // MARK: - Upcoming Chores & Deadlines
@@ -455,20 +396,15 @@ struct HomeView: View {
 
         switch days {
         case ..<0:
-            return "Past due"
+            return String(localized: "Past due")
         case 0:
-            return "Today"
+            return String(localized: "Today")
         case 1:
-            return "In 1 day"
+            return String(localized: "In 1 day")
         default:
-            return "In \(days) days"
+            return String(localized: "In \(days) days")
         }
     }
 }
 
-private struct SettlementSuggestion: Identifiable {
-    let id = UUID()
-    let from: String
-    let to: String
-    let amount: Double
-}
+

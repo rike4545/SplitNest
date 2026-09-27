@@ -9,7 +9,7 @@
 
 import Foundation
 
-struct Member: Identifiable, Hashable {
+struct Member: Identifiable, Hashable, Codable {
     let id: UUID
     var name: String
 
@@ -21,7 +21,7 @@ struct Member: Identifiable, Hashable {
 
 // MARK: - Recurrence
 
-enum RecurrenceFrequency: String, CaseIterable, Identifiable {
+enum RecurrenceFrequency: String, CaseIterable, Identifiable, Codable {
     case none
     case weekly
     case monthly
@@ -31,10 +31,10 @@ enum RecurrenceFrequency: String, CaseIterable, Identifiable {
 
     var label: String {
         switch self {
-        case .none:       return "Doesn’t repeat"
-        case .weekly:     return "Every week"
-        case .monthly:    return "Every month"
-        case .customDays: return "Custom days"
+        case .none:       return String(localized: "Doesn’t repeat")
+        case .weekly:     return String(localized: "Every week")
+        case .monthly:    return String(localized: "Every month")
+        case .customDays: return String(localized: "Custom days")
         }
     }
 
@@ -55,7 +55,7 @@ enum RecurrenceFrequency: String, CaseIterable, Identifiable {
 
 // MARK: - Expense
 
-enum ExpenseCategory: String, CaseIterable, Identifiable {
+enum ExpenseCategory: String, CaseIterable, Identifiable, Codable {
     case rent
     case utilities
     case groceries
@@ -69,19 +69,19 @@ enum ExpenseCategory: String, CaseIterable, Identifiable {
 
     var label: String {
         switch self {
-        case .rent:          return "Rent"
-        case .utilities:     return "Utilities"
-        case .groceries:     return "Groceries"
-        case .diningOut:     return "Dining Out"
-        case .entertainment: return "Entertainment"
-        case .pets:          return "Pets"
-        case .transport:     return "Transport"
-        case .other:         return "Other"
+        case .rent:          return String(localized: "Rent")
+        case .utilities:     return String(localized: "Utilities")
+        case .groceries:     return String(localized: "Groceries")
+        case .diningOut:     return String(localized: "Dining Out")
+        case .entertainment: return String(localized: "Entertainment")
+        case .pets:          return String(localized: "Pets")
+        case .transport:     return String(localized: "Transport")
+        case .other:         return String(localized: "Other")
         }
     }
 }
 
-struct Expense: Identifiable {
+struct Expense: Identifiable, Codable {
     let id: UUID
     var title: String
     var amount: Double
@@ -124,7 +124,7 @@ struct Expense: Identifiable {
 
 // MARK: - Chore
 
-struct Chore: Identifiable {
+struct Chore: Identifiable, Codable {
     let id: UUID
     var title: String
     var assignedTo: Member.ID?
@@ -160,7 +160,7 @@ struct Chore: Identifiable {
 
 // MARK: - Lists
 
-struct ListItem: Identifiable {
+struct ListItem: Identifiable, Codable {
     let id: UUID
     var text: String
     var isCompleted: Bool
@@ -172,7 +172,7 @@ struct ListItem: Identifiable {
     }
 }
 
-struct SharedList: Identifiable {
+struct SharedList: Identifiable, Codable {
     let id: UUID
     var title: String
     var items: [ListItem]
@@ -183,3 +183,4 @@ struct SharedList: Identifiable {
         self.items = items
     }
 }
+

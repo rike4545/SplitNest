@@ -5,28 +5,177 @@
 
 import Foundation
 import Combine
+#if canImport(UserNotifications)
+import UserNotifications
+#endif
 
 final class HouseholdStore: ObservableObject {
 
     // MARK: - Published State
 
-    @Published var householdName: String
-    @Published var members: [Member]
-    @Published var expenses: [Expense]
-    @Published var chores: [Chore]
-    @Published var lists: [SharedList]
+    @Published var householdName: String { didSet { save() } }
+    @Published var currencyCode: String { didSet { save() } }
+    @Published var categoryBudgets: [ExpenseCategory: Double] { didSet { save() } }
+    @Published var members: [Member] { didSet { save() } }
+    @Published var expenses: [Expense] { didSet { save(); scheduleReminders() } }
+    @Published var chores: [Chore] { didSet { save() } }
+    @Published var lists: [SharedList] { didSet { save() } }
+    @Published var remindersEnabled: Bool { didSet { defaults.set(remindersEnabled, forKey: Self.reminderKey); scheduleReminders() } }
 
-    // MARK: - Init
+    // MARK: - Local persistence
 
-    init() {
-        self.householdName = "The Nest"
-        self.members = []
-        self.expenses = []
-        self.chores = []
-        self.lists = []
+    private struct Snapshot: Codable {
+        var householdName: String
+        var currencyCode: String?
+        var categoryBudgets: [ExpenseCategory: Double]?
+        var members: [Member]
+        var expenses: [Expense]
+        var chores: [Chore]
+        var lists: [SharedList]
+    }
+
+    private static let storageKey = "SplitNest.household.v1"
+    private static let reminderKey = "SplitNest.reminders.enabled"
+    private let defaults: UserDefaults
+
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+        let snapshot = defaults.data(forKey: Self.storageKey)
+            .flatMap { try? JSONDecoder().decode(Snapshot.self, from: $0) }
+        self.householdName = snapshot?.householdName ?? String(localized: "The Nest")
+        self.currencyCode = snapshot?.currencyCode ?? Locale.current.currency?.identifier ?? "USD"
+        self.categoryBudgets = snapshot?.categoryBudgets ?? Self.defaultBudgets
+        self.members = snapshot?.members ?? []
+        self.expenses = snapshot?.expenses ?? []
+        self.chores = snapshot?.chores ?? []
+        self.lists = snapshot?.lists ?? []
+        self.remindersEnabled = defaults.bool(forKey: Self.reminderKey)
+    }
+
+    private static let defaultBudgets: [ExpenseCategory: Double] = [
+        .rent: 2500, .utilities: 300, .groceries: 600, .diningOut: 300,
+        .entertainment: 200, .pets: 150, .transport: 200, .other: 250
+    ]
+
+    func setBudget(_ amount: Double, for category: ExpenseCategory) {
+        guard amount.isFinite, amount >= 0 else { return }
+        categoryBudgets[category] = amount
+    }
+
+    func exportBackup() throws -> Data {
+        try JSONEncoder().encode(Snapshot(householdName: householdName,
+            currencyCode: currencyCode, categoryBudgets: categoryBudgets,
+            members: members, expenses: expenses, chores: chores, lists: lists))
+    }
+
+    func importBackup(_ data: Data) throws {
+        let snapshot = try JSONDecoder().decode(Snapshot.self, from: data)
+        guard !snapshot.householdName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              snapshot.expenses.allSatisfy({ $0.amount.isFinite && $0.amount > 0 && $0.amount < Double(Int.max) / 100 }),
+              (snapshot.categoryBudgets ?? [:]).values.allSatisfy({ $0.isFinite && $0 >= 0 }),
+              snapshot.currencyCode.map({ Locale.commonISOCurrencyCodes.contains($0) }) ?? true else {
+            throw BackupError.invalidData
+        }
+        householdName = snapshot.householdName
+        currencyCode = snapshot.currencyCode ?? Locale.current.currency?.identifier ?? "USD"
+        categoryBudgets = snapshot.categoryBudgets ?? Self.defaultBudgets
+        members = snapshot.members
+        expenses = snapshot.expenses
+        chores = snapshot.chores
+        lists = snapshot.lists
+    }
+
+    enum BackupError: Error { case invalidData }
+
+    private func save() {
+        let snapshot = Snapshot(
+            householdName: householdName,
+            currencyCode: currencyCode,
+            categoryBudgets: categoryBudgets,
+            members: members,
+            expenses: expenses,
+            chores: chores,
+            lists: lists
+        )
+        guard let data = try? JSONEncoder().encode(snapshot) else { return }
+        defaults.set(data, forKey: Self.storageKey)
+    }
+
+    // MARK: - Localized input
+
+    static func parseAmount(_ input: String, locale: Locale = .current) -> Double? {
+        let value = input.trimmingCharacters(in: .whitespacesAndNewlines)
+        let decimal = NSRegularExpression.escapedPattern(for: locale.decimalSeparator ?? ".")
+        let grouping = NSRegularExpression.escapedPattern(for: locale.groupingSeparator ?? ",")
+        let pattern = "^(?:[0-9]+|[0-9]{1,3}(?:\(grouping)[0-9]{3})+)(?:\(decimal)[0-9]+)?$"
+        guard value.range(of: pattern, options: .regularExpression) != nil else { return nil }
+        let normalized = value
+            .replacingOccurrences(of: locale.groupingSeparator ?? ",", with: "")
+            .replacingOccurrences(of: locale.decimalSeparator ?? ".", with: ".")
+        guard let amount = Double(normalized), amount.isFinite, amount > 0 else { return nil }
+        return amount
+    }
+
+    // MARK: - Recurring bills and reminders
+
+    func nextBillDate(for expense: Expense, after date: Date = Date()) -> Date? {
+        guard var due = expense.dueDate else { return nil }
+        let calendar = Calendar.current
+        for _ in 0..<1200 {
+            if calendar.startOfDay(for: due) >= calendar.startOfDay(for: date) { return due }
+            let next: Date?
+            switch expense.recurrenceFrequency {
+            case .none: return nil
+            case .weekly: next = calendar.date(byAdding: .weekOfYear, value: 1, to: due)
+            case .monthly: next = calendar.date(byAdding: .month, value: 1, to: due)
+            case .customDays:
+                guard let days = expense.customIntervalDays, days > 0 else { return nil }
+                next = calendar.date(byAdding: .day, value: days, to: due)
+            }
+            guard let next, next > due else { return nil }
+            due = next
+        }
+        return nil
+    }
+
+    func enableReminders() {
+#if canImport(UserNotifications)
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { granted, _ in
+            DispatchQueue.main.async { self.remindersEnabled = granted }
+        }
+#endif
+    }
+
+    func scheduleReminders() {
+#if canImport(UserNotifications)
+        let center = UNUserNotificationCenter.current()
+        let ids = expenses.map { "bill-\($0.id.uuidString)" }
+        center.removePendingNotificationRequests(withIdentifiers: defaults.stringArray(forKey: "SplitNest.billNotificationIDs") ?? [])
+        defaults.set(ids, forKey: "SplitNest.billNotificationIDs")
+        guard remindersEnabled else { return }
+        for expense in expenses {
+            let todayAtNine = Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: Date()) ?? Date()
+            let earliest = Date() < todayAtNine ? Date() : Calendar.current.date(byAdding: .day, value: 1, to: Date()) ?? Date()
+            guard let due = nextBillDate(for: expense, after: earliest) else { continue }
+            let content = UNMutableNotificationContent()
+            content.title = L10n.format("Bill due: %@", expense.title)
+            content.body = expense.amount.formatted(.currency(code: currencyCode))
+            content.sound = .default
+            var components = Calendar.current.dateComponents([.year, .month, .day], from: due)
+            components.hour = 9
+            let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
+            center.add(UNNotificationRequest(identifier: "bill-\(expense.id.uuidString)",
+                content: content, trigger: trigger))
+        }
+#endif
     }
 
     // MARK: - Household
+
+    func setCurrency(_ code: String) {
+        guard Locale.commonISOCurrencyCodes.contains(code) else { return }
+        currencyCode = code
+    }
 
     func renameHousehold(to newName: String) {
         let trimmed = newName.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -84,7 +233,10 @@ final class HouseholdStore: ObservableObject {
         customIntervalDays: Int? = nil
     ) {
         let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedTitle.isEmpty else { return }
+        guard !trimmedTitle.isEmpty, amount.isFinite, amount > 0, amount < Double(Int.max) / 100,
+              members.contains(where: { $0.id == paidBy }),
+              !participants.isEmpty,
+              participants.allSatisfy({ id in members.contains(where: { $0.id == id }) }) else { return }
 
         let new = Expense(
             title: trimmedTitle,
@@ -102,7 +254,12 @@ final class HouseholdStore: ObservableObject {
 
     /// Replace an existing expense by matching its id.
     func updateExpense(_ updated: Expense) {
-        guard let index = expenses.firstIndex(where: { $0.id == updated.id }) else { return }
+        guard let index = expenses.firstIndex(where: { $0.id == updated.id }),
+              updated.amount.isFinite, updated.amount > 0,
+              updated.amount < Double(Int.max) / 100,
+              members.contains(where: { $0.id == updated.paidBy }),
+              !updated.participants.isEmpty,
+              updated.participants.allSatisfy({ id in members.contains(where: { $0.id == id }) }) else { return }
         expenses[index] = updated
     }
 
@@ -118,12 +275,11 @@ final class HouseholdStore: ObservableObject {
         let horizon = calendar.date(byAdding: .day, value: days, to: now) ?? now
 
         return expenses
-            .compactMap { expense -> Expense? in
-                guard let due = expense.dueDate else { return nil }
-                guard due >= now && due <= horizon else { return nil }
-                return expense
+            .filter { expense in
+                guard let due = nextBillDate(for: expense) else { return false }
+                return due <= horizon
             }
-            .sorted { ($0.dueDate ?? now) < ($1.dueDate ?? now) }
+            .sorted { (nextBillDate(for: $0) ?? now) < (nextBillDate(for: $1) ?? now) }
     }
 
     // MARK: - Chores
@@ -269,27 +425,66 @@ final class HouseholdStore: ObservableObject {
 
     // MARK: - Balances
 
-    /// Very simple net balance calculation: positive = others owe them.
+    /// Positive means this member is owed money.
     var netBalances: [Member.ID: Double] {
-        var balances: [Member.ID: Double] = [:]
-        for member in members {
-            balances[member.id] = 0
-        }
+        centBalances.mapValues { Double($0) / 100 }
+    }
 
+    private var centBalances: [Member.ID: Int] {
+        var balances = Dictionary(uniqueKeysWithValues: members.map { ($0.id, 0) })
         for expense in expenses {
-            guard !expense.participants.isEmpty else { continue }
-            let share = expense.amount / Double(expense.participants.count)
-
-            // Participants owe their share
-            for participant in expense.participants {
-                balances[participant, default: 0] -= share
+            guard balances[expense.paidBy] != nil, expense.amount.isFinite,
+                  expense.amount > 0 else { continue }
+            let participants = Array(Set(expense.participants))
+                .filter { balances[$0] != nil }
+                .sorted { $0.uuidString < $1.uuidString }
+            guard !participants.isEmpty else { continue }
+            let cents = Int((expense.amount * 100).rounded())
+            let share = cents / participants.count
+            let remainder = cents % participants.count
+            for (index, id) in participants.enumerated() {
+                balances[id, default: 0] -= share + (index < remainder ? 1 : 0)
             }
-
-            // Payer fronted the full amount
-            balances[expense.paidBy, default: 0] += expense.amount
+            balances[expense.paidBy, default: 0] += cents
         }
-
         return balances
+    }
+
+    struct Settlement: Identifiable {
+        let from: Member
+        let to: Member
+        let cents: Int
+        var id: String { from.id.uuidString + to.id.uuidString }
+        var amount: Double { Double(cents) / 100 }
+    }
+
+    /// Greedily match debtors with creditors; amounts are rounded to cents.
+    var suggestedSettlements: [Settlement] {
+        let balances = centBalances
+        var debtors = members.compactMap { member -> (Member, Int)? in
+            let amount = balances[member.id, default: 0]
+            return amount < 0 ? (member, -amount) : nil
+        }.sorted { $0.0.name < $1.0.name }
+        var creditors = members.compactMap { member -> (Member, Int)? in
+            let amount = balances[member.id, default: 0]
+            return amount > 0 ? (member, amount) : nil
+        }.sorted { $0.0.name < $1.0.name }
+        var result: [Settlement] = []
+        var debtorIndex = 0
+        var creditorIndex = 0
+        while debtorIndex < debtors.count && creditorIndex < creditors.count {
+            let amount = min(debtors[debtorIndex].1, creditors[creditorIndex].1)
+            result.append(Settlement(
+                from: debtors[debtorIndex].0,
+                to: creditors[creditorIndex].0,
+                cents: amount
+            ))
+            debtors[debtorIndex].1 -= amount
+            creditors[creditorIndex].1 -= amount
+            if debtors[debtorIndex].1 == 0 { debtorIndex += 1 }
+            if creditors[creditorIndex].1 == 0 { creditorIndex += 1 }
+        }
+        return result
     }
 
     // MARK: - Monthly Expense Summary (for Budget by Month)
@@ -328,20 +523,6 @@ final class HouseholdStore: ObservableObject {
     }
 
     // MARK: - Category Budgets & Totals
-
-    /// Simple per-category monthly budgets (can be made editable later).
-    var categoryBudgets: [ExpenseCategory: Double] {
-        [
-            .rent:          2500,
-            .utilities:     300,
-            .groceries:     600,
-            .diningOut:     300,
-            .entertainment: 200,
-            .pets:          150,
-            .transport:     200,
-            .other:         250
-        ]
-    }
 
     /// Per-category totals for a given year/month (by expense.date).
     func categoryTotals(forYear year: Int, month: Int) -> [ExpenseCategory: Double] {
@@ -382,7 +563,8 @@ struct MonthlyExpenseSummary: Identifiable {
         let date = calendar.date(from: comps) ?? Date()
 
         let formatter = DateFormatter()
-        formatter.dateFormat = "MMMM yyyy"
+        formatter.setLocalizedDateFormatFromTemplate("MMMM yyyy")
         return formatter.string(from: date)
     }
 }
+

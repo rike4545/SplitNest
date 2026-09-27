@@ -39,6 +39,20 @@ struct ExpensesView: View {
                     }
 
                     List {
+                        if !household.suggestedSettlements.isEmpty {
+                            Section("Settle up") {
+                                ForEach(household.suggestedSettlements) { settlement in
+                                    HStack {
+                                        Text("\(settlement.from.name) → \(settlement.to.name)")
+                                        Spacer()
+                                        Text(settlement.amount, format: .currency(code: household.currencyCode))
+                                            .fontWeight(.semibold)
+                                    }
+                                    .accessibilityElement(children: .combine)
+                                }
+                            }
+                        }
+                        Section("Expenses") {
                         ForEach(sortedExpenses) { expense in
                             expenseRow(expense)
                                 .contentShape(Rectangle())
@@ -72,6 +86,7 @@ struct ExpensesView: View {
                                 household.deleteExpense(expense)
                             }
                             refreshExpenseToast()
+                        }
                         }
                     }
 #if os(iOS)
@@ -186,7 +201,7 @@ struct ExpensesView: View {
                     Text(expense.title)
                         .font(.system(size: 16, weight: .semibold, design: .rounded))
                     if let due = expense.dueDate {
-                        Text("Due \(due, style: .date)")
+                        Text(L10n.format("Due %@", due.formatted(date: .abbreviated, time: .omitted)))
                             .font(SplitNestTheme.captionFont())
                             .foregroundColor(SplitNestTheme.textSecondary)
                     }
@@ -196,7 +211,7 @@ struct ExpensesView: View {
 
                 Text(
                     expense.amount,
-                    format: .currency(code: Locale.current.currency?.identifier ?? "USD")
+                    format: .currency(code: household.currencyCode)
                 )
                 .font(.system(size: 16, weight: .bold, design: .rounded))
                 .foregroundColor(SplitNestTheme.primary)
@@ -222,7 +237,7 @@ struct ExpensesView: View {
                         .font(.system(size: 16, weight: .semibold, design: .rounded))
 
                     if let payer = household.member(for: expense.paidBy) {
-                        Text("Paid by \(payer.name)")
+                        Text(L10n.format("Paid by %@", payer.name))
                             .font(SplitNestTheme.captionFont())
                             .foregroundColor(SplitNestTheme.textSecondary)
                     }
@@ -230,7 +245,7 @@ struct ExpensesView: View {
                     HStack(spacing: 6) {
                         Text(ExpensesView.dateFormatter.string(from: expense.date))
                         if let due = expense.dueDate {
-                            Text("· Due \(due, style: .date)")
+                            Text(L10n.format("· Due %@", due.formatted(date: .abbreviated, time: .omitted)))
                         }
                     }
                     .font(SplitNestTheme.captionFont())
@@ -242,7 +257,7 @@ struct ExpensesView: View {
                 VStack(alignment: .trailing, spacing: 10) {
                     Text(
                         expense.amount,
-                        format: .currency(code: Locale.current.currency?.identifier ?? "USD")
+                        format: .currency(code: household.currencyCode)
                     )
                     .font(.system(size: 16, weight: .bold, design: .rounded))
                     .foregroundColor(SplitNestTheme.primary)
@@ -292,7 +307,7 @@ struct ExpensesView: View {
         df.dateStyle = .medium
 
         if let due = upcoming.dueDate {
-            expenseToastText = "\(upcoming.title) · due \(df.string(from: due))"
+            expenseToastText = L10n.format("%@ · due %@", upcoming.title, df.string(from: due))
         } else {
             expenseToastText = upcoming.title
         }
@@ -332,7 +347,7 @@ private struct ExpenseReminderToast: View {
                 .foregroundColor(SplitNestTheme.primary)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(title)
+                Text(LocalizedStringKey(title))
                     .font(.caption.bold())
                     .foregroundColor(SplitNestTheme.textPrimary)
 
@@ -351,3 +366,4 @@ private struct ExpenseReminderToast: View {
         )
     }
 }
+

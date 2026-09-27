@@ -27,13 +27,14 @@ struct EditExpenseView: View {
     @State private var recurrenceFrequency: RecurrenceFrequency
     @State private var customIntervalText: String
     @State private var showingDeleteConfirmation = false
+    @State private var showingValidationError = false
 
     // MARK: - Init
 
     init(expense: Expense) {
         self.originalExpense = expense
         _title = State(initialValue: expense.title)
-        _amountText = State(initialValue: String(format: "%.2f", expense.amount))
+        _amountText = State(initialValue: expense.amount.formatted(.number.precision(.fractionLength(0...2))))
         _paidBy = State(initialValue: expense.paidBy)
         _selectedParticipants = State(initialValue: Set(expense.participants))
         _category = State(initialValue: expense.category)
@@ -56,7 +57,8 @@ struct EditExpenseView: View {
             Section(header: Text("Details")) {
                 TextField("Title", text: $title)
 
-                TextField("Amount", text: $amountText)
+                TextField(L10n.format("Amount (%@)", household.currencyCode), text: $amountText)
+                    .keyboardType(.decimalPad)
                     .multilineTextAlignment(.trailing)
 
                 // Optional read-only date display
@@ -141,6 +143,11 @@ struct EditExpenseView: View {
                 .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
         }
+        .alert("Invalid amount", isPresented: $showingValidationError) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text("Enter a positive amount using your device’s decimal separator.")
+        }
         .confirmationDialog(
             "Delete this expense?",
             isPresented: $showingDeleteConfirmation,
@@ -177,12 +184,10 @@ struct EditExpenseView: View {
         // Title
         updated.title = title.trimmingCharacters(in: .whitespacesAndNewlines)
 
-        // Amount: strip out non-numeric chars, fallback to original if parse fails
-        let cleanedString = amountText
-            .replacingOccurrences(of: ",", with: ".")
-            .filter { "0123456789.".contains($0) }
-
-        let parsedAmount = Double(cleanedString) ?? originalExpense.amount
+        guard let parsedAmount = HouseholdStore.parseAmount(amountText) else {
+            showingValidationError = true
+            return
+        }
         updated.amount = parsedAmount
 
         // Payer
@@ -217,3 +222,4 @@ struct EditExpenseView: View {
         dismiss()
     }
 }
+

@@ -124,7 +124,7 @@ struct PillTag: View {
     let text: String
 
     var body: some View {
-        Text(text)
+        Text(LocalizedStringKey(text))
             .font(SplitNestTheme.captionFont())
             .padding(.vertical, 4)
             .padding(.horizontal, 12)
@@ -164,11 +164,11 @@ struct SplitNestSectionHeader: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(title)
+            Text(LocalizedStringKey(title))
                 .font(SplitNestTheme.sectionFont())
                 .foregroundColor(SplitNestTheme.textPrimary)
             if let subtitle {
-                Text(subtitle)
+                Text(LocalizedStringKey(subtitle))
                     .font(SplitNestTheme.captionFont())
                     .foregroundColor(SplitNestTheme.textSecondary)
             }
@@ -187,7 +187,7 @@ struct SplitNestStatPill: View {
             Circle()
                 .fill(accent.opacity(0.2))
                 .frame(width: 10, height: 10)
-            Text(label)
+            Text(LocalizedStringKey(label))
                 .font(SplitNestTheme.captionFont())
                 .foregroundColor(SplitNestTheme.textSecondary)
             Spacer()
@@ -203,3 +203,4 @@ struct SplitNestStatPill: View {
         )
     }
 }
+

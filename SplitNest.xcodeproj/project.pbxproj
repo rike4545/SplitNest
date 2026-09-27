@@ -197,6 +197,11 @@
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				en,
+				es,
+				fr,
+				de,
+				"pt-BR",
+				ja,
 				Base,
 			);
 			mainGroup = 933A8FF52EDFC1B500A91872;
@@ -646,3 +651,4 @@
 	};
 	rootObject = 933A8FF62EDFC1B500A91872 /* Project object */;
 }
+

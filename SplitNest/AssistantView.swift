@@ -12,12 +12,22 @@ import SwiftUI
 
 struct AssistantView: View {
     @EnvironmentObject private var assistantStore: AiAssistantStore
+    @EnvironmentObject private var household: HouseholdStore
     @Environment(\.colorScheme) private var scheme
     @State private var inputText: String = ""
     @State private var showingClearConfirmation = false
 
     var body: some View {
         VStack(spacing: 0) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack {
+                    ForEach(AiAssistantStore.Topic.allCases) { topic in
+                        Button(topic.title) { assistantStore.send(topic, household: household) }
+                            .buttonStyle(.bordered)
+                    }
+                }
+                .padding(.horizontal)
+            }
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 12) {
                     ForEach(assistantStore.messages) { message in
@@ -31,7 +41,7 @@ struct AssistantView: View {
 
             SplitNestCard {
                 HStack(spacing: 8) {
-                    TextField("Ask about expenses, splits, or reminders…", text: $inputText, axis: .vertical)
+                    TextField("Ask about balances, bills, chores, or budgets…", text: $inputText, axis: .vertical)
                         .textFieldStyle(.roundedBorder)
                         .lineLimit(1...3)
 
@@ -48,7 +58,7 @@ struct AssistantView: View {
             }
             .padding()
         }
-        .navigationTitle("Assistant")
+        .navigationTitle("Household Insights")
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button("Clear") {
@@ -97,7 +107,7 @@ struct AssistantView: View {
     private func send() {
         let trimmed = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
-        assistantStore.send(trimmed)
+        assistantStore.send(trimmed, household: household)
         inputText = ""
     }
 }
