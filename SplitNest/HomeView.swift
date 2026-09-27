@@ -212,7 +212,7 @@ struct HomeView: View {
 
                             Text(
                                 suggestion.amount,
-                                format: .currency(code: Locale.current.currency?.identifier ?? "USD")
+                                format: .currency(code: household.currencyCode)
                             )
                             .font(.system(size: 16, weight: .bold, design: .rounded))
                             .foregroundColor(SplitNestTheme.primary)
@@ -225,7 +225,7 @@ struct HomeView: View {
 
     private var settlementSummaryValue: String {
         guard let first = settlementSuggestions.first else { return "$0" }
-        return first.amount.formatted(.currency(code: Locale.current.currency?.identifier ?? "USD"))
+        return first.amount.formatted(.currency(code: household.currencyCode))
     }
 
     private var settlementSummarySubtitle: String {
@@ -338,7 +338,7 @@ struct HomeView: View {
 
                             Text(
                                 expense.amount,
-                                format: .currency(code: Locale.current.currency?.identifier ?? "USD")
+                                format: .currency(code: household.currencyCode)
                             )
                             .font(.system(size: 16, weight: .bold, design: .rounded))
                             .foregroundColor(SplitNestTheme.primary)
